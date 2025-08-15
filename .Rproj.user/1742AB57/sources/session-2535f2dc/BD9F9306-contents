@@ -26,19 +26,6 @@ library(shiny)
   #_plt plot
   #formatted
 
-# 1. Reading the tables to retrieve the playerround data
-gameversion <- read_csv("250814_housinggame-tables\\gameversion.csv")
-gamesession <- read_csv("250814_housinggame-tables\\gamesession.csv")
-group <- read_csv("250814_housinggame-tables\\group.csv")
-groupround <- read_csv("250814_housinggame-tables\\groupround.csv")
-playerround <- read_csv("250814_housinggame-tables\\playerround.csv")
-welfaretype <- read_csv("250814_housinggame-tables\\welfaretype.csv")
-scenario <- read_csv("250814_housinggame-tables\\scenario.csv")
-player <- read_csv("250814_housinggame-tables\\player.csv")
-
-fgamesession <- gamesession %>% select(id,name)
-
-
 # Dummy datasets
 set.seed(123)
 dataset1 <- data.frame(
@@ -91,32 +78,32 @@ server <- function(input, output) {
     ## x = Category: Sets the x-axis to the categorical variable.
     ## Dynamically selects the y-axis variable based on user input
     ## Creates a custom tooltip string for hover interactivity.
-    # p <- ggplot(data, aes(x = Category, y = !!sym(input$yvar),
-    #                       text = paste("Category:", Category,
-    #                                    "\nValue:", round(!!sym(input$yvar), 2)))) +
-    #   labs(
-    #     title = paste(input$plotType, "of", input$yvar, "by Category"),
-    #     x = "Category",
-    #     y = input$yvar
-    #   ) +
-    #   theme_minimal() +
-    #   theme(
-    #     plot.title = element_text(hjust = 0.5),
-    #     panel.background = element_rect(fill = "white"),
-    #     plot.background = element_rect(fill = "white")
-    #   )
-    # 
-    # # Add geom based on plot type
-    # if (input$plotType == "Boxplot") {
-    #   p <- p + geom_boxplot(fill = "#79A2C5", color = "black")
-    # } else if (input$plotType == "Scatterplot") {
-    #   p <- p + geom_point(color = "#dfaba3", size = 3)
-    # } else if (input$plotType == "Lineplot") {
-    #   p <- p + geom_line(aes(group = Category), color = "#E1BB70", size = 1)
-    # }
-    # 
-    # # Convert to interactive plotly
-    # ggplotly(p, tooltip = "text")
+    p <- ggplot(data, aes(x = Category, y = !!sym(input$yvar),
+                          text = paste("Category:", Category,
+                                       "\nValue:", round(!!sym(input$yvar), 2)))) +
+      labs(
+        title = paste(input$plotType, "of", input$yvar, "by Category"),
+        x = "Category",
+        y = input$yvar
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5),
+        panel.background = element_rect(fill = "white"),
+        plot.background = element_rect(fill = "white")
+      )
+    
+    # Add geom based on plot type
+    if (input$plotType == "Boxplot") {
+      p <- p + geom_boxplot(fill = "#79A2C5", color = "black")
+    } else if (input$plotType == "Scatterplot") {
+      p <- p + geom_point(color = "#dfaba3", size = 3)
+    } else if (input$plotType == "Lineplot") {
+      p <- p + geom_line(aes(group = Category), color = "#E1BB70", size = 1)
+    }
+    
+    # Convert to interactive plotly
+    ggplotly(p, tooltip = "text")
   })
 }
 

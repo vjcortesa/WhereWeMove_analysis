@@ -23,7 +23,7 @@ library(shiny)
 
 # 0. Questions to answer with the dataset
 Question_id <- c(1, 2, 3)
-Question <- c("How did players spend their money?", 
+Question <- c("How did players spend their money in average?", 
                  "Which measures did players choose at every round?",
                  "How did welfare type affect their choices?")
 Plotype <- c("IncomeDistribution", 
@@ -45,6 +45,11 @@ playerround <- read_csv("250814_housinggame-tables\\playerround.csv")
 welfaretype <- read_csv("250814_housinggame-tables\\welfaretype.csv")
 scenario <- read_csv("250814_housinggame-tables\\scenario.csv")
 player <- read_csv("250814_housinggame-tables\\player.csv")
+
+# 1a. Creating datasets for the dynamic filtering of the app (not a priority now)
+fgamesession <- gamesession %>% select(id,name)
+fgroup <- group %>% select(id,name,gamesession_id)
+fplayer <- player %>% select(id,code,group_id)
 
 # 2. Add the necessary variables per table to plot per player, table and per session averages
 ## per session average, adding the name, remaned to the group to avoid name overlap
@@ -91,7 +96,11 @@ playerround <- playerround %>%
 
 # 5. Make a function to build the plot
 
-plot_income_dist <- function(Question_id, variables, dataset) {
+plot_income_dist <- function(Question_id, question_name, variables, dataset, dataset_session, dataset_table, dataset_player) {
+  # Plot title definition
+  plot_title <- dataanalysis$Question[dataanalysis$Question_id ==Question_id]
+  plot_subtitle <- paste("Session:", dataset_session, "Table:", dataset_table, "Player:", dataset_player)
+  
   # Select variables columns from the filtered dataset
   income_dist <- dataset %>% select(all_of(variables))
   # Calculate the mean values per dataset variable
@@ -155,17 +164,20 @@ plot_income_dist <- function(Question_id, variables, dataset) {
           color = "ave_Spendable"),
       size = 1.2) +
     labs(
-            title = dataanalysis$Question[dataanalysis$Question_id ==Question_id],
+            title = plot_title,
+            subtitle = plot_subtitle,
             color = "Category"
             ) +
     # Custom fill colors to what is plotted in the legend
     scale_color_manual(
-      name = "Category",
+      name = "Round Spendable \n Income",
       values = c(
-        "ave_Spendable" = "black"
-      )) +
+        "ave_Spendable" = "black"),
+      labels = c(
+        "ave_Spendable" = "Round income - Expenses")
+      ) +
     scale_fill_manual(
-      name = "Category",
+      name = "Round Expenses",
       values = c(
         "round_income" = "#E1BB70",
         "ave_LivingCost" = "#a3a3a3",
@@ -175,8 +187,18 @@ plot_income_dist <- function(Question_id, variables, dataset) {
         "ave_mortgage" = "#cccccc",
         "ave_taxes" = "#dddddd",
         "ave_fluvial_damage" = "#79A2C5",
-        "ave_pluvial_damage" = "#79BCC5"
-      )) +
+        "ave_pluvial_damage" = "#79BCC5"),
+      labels = c(
+        "round_income" = "+ Income",
+        "ave_LivingCost" = " - Living Costs",
+        "ave_debt" = "+ Start savings / - debt",
+        "ave_satisfaction" = "Satisfaction costs",
+        "ave_measures" = "Measures costs",
+        "ave_mortgage" = "Mortgage costs",
+        "ave_taxes" = "Taxes costs",
+        "ave_fluvial_damage" = "River damage costs",
+        "ave_pluvial_damage" = "Rain damage costs")
+      ) +
     #Y-axis formatting
     scale_y_continuous(
       labels = function(y) y / 1000,
@@ -191,14 +213,16 @@ plot_income_dist <- function(Question_id, variables, dataset) {
           theme(
             axis.text.x = element_text(angle = 0, hjust = 0.5),
             plot.title = element_text(hjust = 0.5),
+            plot.subtitle = element_text(hjust = 0.5, size = 10),
             plot.title.position = "plot"
             )
     print(plot)
     ggsave("IncomeDistribution.png", width = 12, height = 6, dpi = 300)
   return(plot)
 }  
-
-plot_income_dist (1,income_dist_var, f_playerround) 
+question_plt <- dataanalysis$Question[dataanalysis$Question_id ==Question_id]
+plot_income_dist (1,question_plt, income_dist_var, f_playerround, 
+                  f_playerround$gamesession_name[1], "all", "all") 
 # # Calculate the mean values per dataset variable
 # income_dist_plt <- income_dist %>%
 #   group_by(round_income) %>%
@@ -326,3 +350,4 @@ plot_income_dist (1,income_dist_var, f_playerround)
 #  print(plot)
 #  ggsave("IncomeDistribution.png", width = 12, height = 6, dpi = 300)
 # 
+
