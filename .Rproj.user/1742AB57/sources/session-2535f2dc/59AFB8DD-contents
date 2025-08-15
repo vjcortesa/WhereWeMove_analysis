@@ -100,14 +100,17 @@ plot_income_dist <- function(Question_id, question_name, variables, dataset, dat
   # Plot title definition
   plot_title <- dataanalysis$Question[dataanalysis$Question_id ==Question_id]
   plot_subtitle <- paste("Session:", dataset_session, "Table:", dataset_table, "Player:", dataset_player)
+  plot_name <- paste("IncomeDistribution_","Session_",dataset_session, "Table_", dataset_table, "Player_", dataset_player,".png")
   
   # Select variables columns from the filtered dataset
   income_dist <- dataset %>% select(all_of(variables))
+  income_dist$income_minus_living <- income_dist$round_income - income_dist$living_costs
+  View(income_dist)
   # Calculate the mean values per dataset variable
   income_dist_plt <- income_dist %>%
     group_by(round_income) %>%
     summarise(
-      ave_LivingCost = round(mean(living_costs, na.rm = TRUE), 2),
+      ave_income_minus_living = round(mean(income_minus_living, na.rm = TRUE), 2),
       ave_Spendable = round(mean(spendable_income, na.rm = TRUE), 2),
       ave_mortgage = round(mean(mortgage_payment, na.rm = TRUE), 2),
       ave_taxes = round(mean(cost_taxes, na.rm = TRUE), 2),
@@ -118,10 +121,11 @@ plot_income_dist <- function(Question_id, question_name, variables, dataset, dat
       ave_pluvial_damage = round(mean(cost_pluvial_damage, na.rm = TRUE), 2),
     ) %>%
     ungroup()
+  View(income_dist)
   # Categorise the income distribution per plot category
   line_spendable = income_dist_plt %>% select(ave_Spendable)
-  bars_expenses <- income_dist_plt %>% select(ave_LivingCost, ave_debt, ave_mortgage, ave_taxes, ave_satisfaction, ave_measures, ave_fluvial_damage, ave_pluvial_damage)
-  area_income <- income_dist_plt %>% select(round_income)
+  bars_expenses <- income_dist_plt %>% select(ave_debt, ave_mortgage, ave_taxes, ave_satisfaction, ave_measures, ave_fluvial_damage, ave_pluvial_damage)
+    area_income <- income_dist_plt %>% select(ave_income_minus_living)
   # Adding an index to plot the area and bars together
   line_spendable$Index <- seq_len(nrow(line_spendable))
   bars_expenses$Index <- seq_len(nrow(bars_expenses))
@@ -143,8 +147,7 @@ plot_income_dist <- function(Question_id, question_name, variables, dataset, dat
       "ave_measures",
       "ave_debt",
       "ave_taxes",
-      "ave_mortgage",
-      "ave_LivingCost"
+      "ave_mortgage"
     )
   )
   plot <- ggplot() +
@@ -179,8 +182,7 @@ plot_income_dist <- function(Question_id, question_name, variables, dataset, dat
     scale_fill_manual(
       name = "Round Expenses",
       values = c(
-        "round_income" = "#E1BB70",
-        "ave_LivingCost" = "#a3a3a3",
+        "ave_income_minus_living" = "#E1BB70",
         "ave_debt" = "black",
         "ave_satisfaction" = "#dfaba3",
         "ave_measures" = "white",
@@ -189,9 +191,8 @@ plot_income_dist <- function(Question_id, question_name, variables, dataset, dat
         "ave_fluvial_damage" = "#79A2C5",
         "ave_pluvial_damage" = "#79BCC5"),
       labels = c(
-        "round_income" = "+ Income",
-        "ave_LivingCost" = " - Living Costs",
-        "ave_debt" = "+ Start savings / - debt",
+        "ave_income_minus_living" = "Income - Living costs",
+        "ave_debt" = "Start savings (+) / debt (-)",
         "ave_satisfaction" = "Satisfaction costs",
         "ave_measures" = "Measures costs",
         "ave_mortgage" = "Mortgage costs",
@@ -217,12 +218,15 @@ plot_income_dist <- function(Question_id, question_name, variables, dataset, dat
             plot.title.position = "plot"
             )
     print(plot)
-    ggsave("IncomeDistribution.png", width = 12, height = 6, dpi = 300)
+    ggsave(plot_name, width = 12, height = 6, dpi = 300)
   return(plot)
 }  
 question_plt <- dataanalysis$Question[dataanalysis$Question_id ==Question_id]
 plot_income_dist (1,question_plt, income_dist_var, f_playerround, 
-                  f_playerround$gamesession_name[1], "all", "all") 
+                  f_playerround$gamesession_name[1], "all", "all")
+#f_playerround <- f_playerround %>% select(id, gamesession_name), by = c("gamesession_id" = "id")
+plot_income_dist (1,question_plt, income_dist_var, f_playerround, 
+                  f_playerround$gamesession_name[1], "Table1", "all") 
 # # Calculate the mean values per dataset variable
 # income_dist_plt <- income_dist %>%
 #   group_by(round_income) %>%
