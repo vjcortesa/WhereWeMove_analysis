@@ -84,7 +84,7 @@ playerround <- playerround %>%
  
 # 4. Filtering the playerround dataset for the income distribution plot
  ## dataset variables relevant for the income distribution plot
- income_dist_var <- c("player_id", "groupround_id", "round_number", 
+ income_dist_var <- c("id", "player_id","code", "groupround_id", "round_number", 
                          "round_income", "living_costs", "cost_taxes", "mortgage_payment",
                          "cost_measures_bought", "cost_satisfaction_bought",
                          "cost_fluvial_damage", "cost_pluvial_damage",
@@ -96,16 +96,35 @@ playerround <- playerround %>%
 
 # 5. Make a function to build the plot
 
-plot_income_dist <- function(Question_id, question_name, variables, dataset, dataset_session, dataset_table, dataset_player) {
+plot_income_dist <- function(Question_id, question_name, variables, dataset, session_name, group_name, player_name, round) {
   # Plot title definition
   plot_title <- dataanalysis$Question[dataanalysis$Question_id ==Question_id]
-  plot_subtitle <- paste("Session:", dataset_session, "Table:", dataset_table, "Player:", dataset_player)
-  plot_name <- paste("IncomeDistribution_","Session_",dataset_session, "Table_", dataset_table, "Player_", dataset_player,".png")
+  plot_subtitle <- paste("Session:", session_name, "Group:", group_name, "Player:", player_name, "Round_", round)
+  plot_name <- paste("IncomeDistribution_","Session_",session_name, "Group_", group_name, "Player_", player_name,"Round_", round,".png")
+    # Define dataset based on input criteria
   
+  if (session_name != "all") {
+      dataset <- dataset %>% filter(gamesession_name == session_name)
+  }
   # Select variables columns from the filtered dataset
-  income_dist <- dataset %>% select(all_of(variables))
-  income_dist$income_minus_living <- income_dist$round_income - income_dist$living_costs
-  View(income_dist)
+  dataset <- dataset %>% select(all_of(variables))
+  dataset$income_minus_living <- dataset$round_income - dataset$living_costs
+  view(dataset)
+  if (group_name != "all") {
+   dataset <- dataset %>% filter(group_name == group_name)
+  }
+  #Reference dataset to draw area and line
+  income_dist_plt_ref <- dataset %>%
+    group_by(round_income) %>% 
+    summarise(
+      ave_income_minus_living = round(mean(income_minus_living, na.rm = TRUE), 2),
+      ave_Spendable = round(mean(spendable_income, na.rm = TRUE), 2)
+    )
+  if (player_name != "all") {
+     dataset <- dataset %>% filter(code == player_name)
+   }
+  view(dataset)
+  income_dist <- dataset
   # Calculate the mean values per dataset variable
   income_dist_plt <- income_dist %>%
     group_by(round_income) %>%
@@ -121,23 +140,33 @@ plot_income_dist <- function(Question_id, question_name, variables, dataset, dat
       ave_pluvial_damage = round(mean(cost_pluvial_damage, na.rm = TRUE), 2),
     ) %>%
     ungroup()
+  
   View(income_dist)
+
   # Categorise the income distribution per plot category
-  line_spendable = income_dist_plt %>% select(ave_Spendable)
+  line_spendable = income_dist_plt_ref %>% select(ave_Spendable)
   bars_expenses <- income_dist_plt %>% select(ave_debt, ave_mortgage, ave_taxes, ave_satisfaction, ave_measures, ave_fluvial_damage, ave_pluvial_damage)
-    area_income <- income_dist_plt %>% select(ave_income_minus_living)
+  area_income <- income_dist_plt_ref %>% select(ave_income_minus_living)
+  
   # Adding an index to plot the area and bars together
   line_spendable$Index <- seq_len(nrow(line_spendable))
   bars_expenses$Index <- seq_len(nrow(bars_expenses))
   area_income$Index <- seq_len(nrow(area_income))
   
-  # Formating the dataset to plot per category
+  # Set x range of the plot
+  # Calculate limits
+  x_min <- min(area_income$Index) -0.5 #starts from zero
+  x_max <- max(area_income$Index) + 0.5
+  w = 0.9
+  # Formatting the dataset to plot per category
   bars_expenses_formatted <- bars_expenses %>%
     pivot_longer(cols = -Index, names_to = "Type", values_to = "Value")
   
   area_income_formatted <- area_income %>%
     pivot_longer(cols = -Index, names_to = "Type", values_to = "Value")
-  # Formating the dataset to stach the bars following an specific order
+  View(area_income_formatted)
+  
+  # Formatting the dataset to stack the bars following the given order
   bars_expenses_formatted$Type <- factor(
     bars_expenses_formatted$Type,
     levels = c(
@@ -158,7 +187,8 @@ plot_income_dist <- function(Question_id, question_name, variables, dataset, dat
     geom_bar(data = bars_expenses_formatted,
              aes(x = Index, y = Value, fill = Type),
              stat = "identity",
-             position = "stack"
+             position = "stack",
+             width = w
     ) +
     geom_line(
       data = line_spendable,
@@ -177,10 +207,10 @@ plot_income_dist <- function(Question_id, question_name, variables, dataset, dat
       values = c(
         "ave_Spendable" = "black"),
       labels = c(
-        "ave_Spendable" = "Round income - Expenses")
+        "ave_Spendable" = "Round income - costs")
       ) +
     scale_fill_manual(
-      name = "Round Expenses",
+      name = "Round Budget",
       values = c(
         "ave_income_minus_living" = "#E1BB70",
         "ave_debt" = "black",
@@ -209,6 +239,7 @@ plot_income_dist <- function(Question_id, question_name, variables, dataset, dat
       name = "Welfare Classes",
       breaks = c(1, 2, 3, 4, 5, 6),
       labels = c("Very Low", "Low", "Low-average", "High-average", "High", "Very High")
+      #limits = c(x_min, x_max)
     ) +
     theme_minimal() +
           theme(
@@ -221,137 +252,21 @@ plot_income_dist <- function(Question_id, question_name, variables, dataset, dat
     ggsave(plot_name, width = 12, height = 6, dpi = 300)
   return(plot)
 }  
+#plot_income_dist <- function(Question_id, question_name, variables, dataset, 
+#                             session_name, group, player, round)
 question_plt <- dataanalysis$Question[dataanalysis$Question_id ==Question_id]
 plot_income_dist (1,question_plt, income_dist_var, f_playerround, 
-                  f_playerround$gamesession_name[1], "all", "all")
-#f_playerround <- f_playerround %>% select(id, gamesession_name), by = c("gamesession_id" = "id")
+                  f_playerround$gamesession_name[1], "all", "all", "all")
+
 plot_income_dist (1,question_plt, income_dist_var, f_playerround, 
-                  f_playerround$gamesession_name[1], "Table1", "all") 
-# # Calculate the mean values per dataset variable
-# income_dist_plt <- income_dist %>%
-#   group_by(round_income) %>%
-#   summarise(
-#     ave_LivingCost = round(mean(living_costs, na.rm = TRUE), 2),
-#     ave_Spendable = round(mean(spendable_income, na.rm = TRUE), 2),
-#     ave_mortgage = round(mean(mortgage_payment, na.rm = TRUE), 2),
-#     ave_taxes = round(mean(cost_taxes, na.rm = TRUE), 2),
-#     ave_debt = round(mean(paid_debt, na.rm = TRUE), 2),
-#     ave_measures = round(mean(cost_measures_bought, na.rm = TRUE), 2),
-#     ave_satisfaction = round(mean(cost_satisfaction_bought, na.rm = TRUE), 2),
-#     ave_fluvial_damage  = round(mean(cost_fluvial_damage, na.rm = TRUE), 2),
-#     ave_pluvial_damage = round(mean(cost_pluvial_damage, na.rm = TRUE), 2),
-#   ) %>%
-#   ungroup()
-# 
-# #income_dist_plt <- income_dist_plt %>%
-# #  inner_join(f_welfaretype, by = "round_income")
-# income_dist_plt <- income_dist_plt %>% 
-#   left_join(f_welfaretype %>% select(round_income, name))
-# 
-# # Categorise the income distribution per plot category
-# line_spendable = income_dist_plt %>% select(ave_Spendable)
-# bars_expenses <- income_dist_plt %>% select(ave_LivingCost, ave_debt, ave_mortgage, ave_taxes, ave_satisfaction, ave_measures, ave_fluvial_damage, ave_pluvial_damage)
-# area_income <- income_dist_plt %>% select(round_income)
-# 
-# # Adding an index to plot the area and bars together
-# line_spendable$Index <- seq_len(nrow(line_spendable))
-# bars_expenses$Index <- seq_len(nrow(bars_expenses))
-# area_income$Index <- seq_len(nrow(area_income))
-# 
-# # Formating the dataset to plot per category
-# bars_expenses_formatted <- bars_expenses %>%
-#    pivot_longer(cols = -Index, names_to = "Type", values_to = "Value")
-# 
-# area_income_formatted <- area_income %>%
-#   pivot_longer(cols = -Index, names_to = "Type", values_to = "Value")
-# 
-# bars_expenses_formatted <- bars_expenses %>%
-#   pivot_longer(cols = -Index, names_to = "Type", values_to = "Value")
-# 
-# # Formating the dataset to stach the bars following an specific order
-# bars_expenses_formatted$Type <- factor(
-#   bars_expenses_formatted$Type,
-#   levels = c(
-#     "ave_satisfaction",
-#     "ave_fluvial_damage",
-#     "ave_pluvial_damage",
-#     "ave_measures",
-#     "ave_debt",
-#     "ave_taxes",
-#     "ave_mortgage",
-#     "ave_LivingCost"
-#   )
-# )
-# 
-#  plot <- ggplot() +
-#    geom_area(data = area_income_formatted, 
-#             aes(x = Index, y = Value, fill = Type), 
-#             alpha = 0.6
-#             ) +
-#    geom_bar(data = bars_expenses_formatted, 
-#             aes(x = Index, y = Value, fill = Type), 
-#             stat = "identity", 
-#             position = "stack"
-#             ) + 
-#    geom_line(
-#      data = line_spendable, 
-#      aes(x = Index, 
-#          y = ave_Spendable,
-#          color = "ave_Spendable"), 
-#      size = 1.2) +
-#    labs(
-#      title = "Average player income distribution among game choices",
-#      color = "Category"
-#      ) +
-#    # Custom fill colors to what is plotted in the legend
-#    scale_color_manual(
-#      name = "Category",
-#      values = c(
-#        "ave_Spendable" = "black"
-#      )) +
-#     scale_fill_manual(
-#       name = "Category",
-#       values = c(
-#           "round_income" = "#E1BB70",
-#           "ave_LivingCost" = "#a3a3a3",
-#           "ave_debt" = "black",
-#           "ave_satisfaction" = "#dfaba3",
-#           "ave_measures" = "white",
-#           "ave_mortgage" = "#cccccc",
-#           "ave_taxes" = "#dddddd",
-#           "ave_fluvial_damage" = "#79A2C5",
-#           "ave_pluvial_damage" = "#79BCC5"
-#      )) +
-#    scale_pattern_manual(
-#      values = c(
-#        "round_income" = "none",
-#        "ave_LivingCost" = "none",
-#        "ave_debt" = "none",
-#        "ave_satisfaction" = "none",
-#        "ave_measures" = "stripe",
-#        "ave_mortgage" = "none",
-#        "ave_taxes" = "none",
-#        "ave_fluvial_damage" = "none",
-#        "ave_pluvial_damage" = "none"
-#      )
-#    )+
-#   #Y-axis formatting
-#    scale_y_continuous(
-#      labels = function(y) y / 1000,
-#      name = "Game Currency (k)"
-#    ) +
-#    scale_x_continuous(
-#      name = "Welfare Classes",
-#      breaks = c(1, 2, 3, 4, 5, 6),
-#      labels = c("Very Low", "Low", "Low-average", "High-average", "High", "Very High")
-#    ) +
-#      theme_minimal() +
-#      theme(
-#        axis.text.x = element_text(angle = 0, hjust = 0.5),
-#        plot.title = element_text(hjust = 0.5),
-#        plot.title.position = "plot"
-#        )
-#  print(plot)
-#  ggsave("IncomeDistribution.png", width = 12, height = 6, dpi = 300)
-# 
+                   f_playerround$gamesession_name[1], "table1", "all", "all")
+ 
+plot_income_dist (1,question_plt, income_dist_var, f_playerround, 
+                   f_playerround$gamesession_name[1], "table1", "t1p1", "all")
+ 
+# f_playerround_group_player_round <- f_playerround_group_player %>% filter(round_number == 0)
+# plot_income_dist (1,question_plt, income_dist_var, f_playerround_group_player, 
+#                   f_playerround$gamesession_name[1], "table1", "t1p1", 0)
+
+
 
